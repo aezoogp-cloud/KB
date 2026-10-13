@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>자동차 사고 접수 프로토타입</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --desk:#E9EAEE; --desk-ink:#5B5F66;
+  --ink:#191A1C; --ink2:#4A4D52; --sub:#8B8F96; --ph:#B3B6BC;
+  --line:#DCDDE1; --line2:#ECEDF0; --fill:#F2F3F5;
+  --yel:#FCDC2E; --yel-bg:#FFFCE3; --yel-bd:#F6D93A;
+  --blue:#2A4C9D; --badge:#E2ECFB; --badge-ink:#1E3F7C;
+  --font:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--desk:#1C1D20;--desk-ink:#A3A6AD}}
+:root[data-theme="dark"]{--desk:#1C1D20;--desk-ink:#A3A6AD}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;height:100%;background:var(--desk);font-family:var(--font);color:var(--ink);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:0;padding:0}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+.phone{position:relative;width:390px;height:min(844px,calc(100% - 64px));background:#fff;border-radius:44px;
+  box-shadow:0 0 0 10px #111316,0 24px 60px rgba(0,0,0,.25);overflow:hidden;display:flex;flex-direction:column;color-scheme:light}
+.caption{font-size:13px;color:var(--desk-ink);display:flex;gap:10px;align-items:center}
+.caption button{color:var(--desk-ink);text-decoration:underline;font-size:13px}
+@media (max-width:500px){
+  body{gap:0;justify-content:flex-start}
+  .phone{width:100%;height:100%;border-radius:0;box-shadow:none}
+  .caption,.status{display:none!important}
+}
+
+/* chrome */
+.status{height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 26px 0 40px;font-size:15px;font-weight:700}
+.hdr{height:52px;flex:none;display:flex;align-items:center;padding:0 14px 0 12px;gap:6px}
+.hdr .back{width:32px;height:32px;display:grid;place-items:center}
+.hdr .t{flex:1;font-size:16px;color:var(--ink2)}
+.hdr .ico{width:38px;height:38px;display:grid;place-items:center}
+.stepper{flex:none;position:relative;height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 16px}
+.stepper .lbl{font-size:15px;font-weight:500}
+.dots{display:flex;gap:4px}
+.dot{width:22px;height:22px;border-radius:50%;background:var(--fill);color:var(--sub);font-size:12px;display:grid;place-items:center;transition:background .25s}
+.dot.past{background:#FFF3A8;color:var(--ink2)}
+.dot.on{background:var(--yel);color:var(--ink);font-weight:500}
+.bar{position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--line2)}
+.bar i{display:block;height:100%;background:var(--yel);transition:width .35s ease}
+
+.content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
+.content.gray{background:var(--fill)}
+.screen{padding:28px 24px 32px}
+.screen.in-r{animation:inR .28s ease}
+.screen.in-l{animation:inL .28s ease}
+@keyframes inR{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes inL{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.screen.in-r,.screen.in-l,.check-pop{animation:none!important}}
+
+.footer{flex:none;padding:12px 24px 20px;display:flex;gap:10px;background:inherit}
+.btn{flex:1;height:56px;border-radius:14px;font-size:17px;font-weight:700;background:var(--yel);color:var(--ink);transition:background .2s,color .2s}
+.btn:disabled{background:var(--fill);color:var(--ph);cursor:default}
+.btn.gray{background:var(--fill)}
+
+/* type */
+h1{font-size:20px;line-height:1.4;font-weight:700;margin:0;letter-spacing:-.3px}
+h1 em{font-style:normal;color:var(--blue)}
+.desc{font-size:14px;color:var(--sub);margin:6px 0 0}
+.gap{height:28px}
+
+/* select cards */
+.opt{width:100%;display:flex;align-items:center;gap:12px;min-height:64px;padding:0 20px;border:1px solid var(--line);border-radius:18px;margin-bottom:9px;text-align:left;font-size:16px;transition:background .15s,border-color .15s}
+.opt .em{font-size:24px;width:30px;text-align:center}
+.opt span.l{flex:1}
+.opt svg{color:#D8DADE}
+.opt.on{background:var(--yel-bg);border-color:var(--yel-bd)}
+.opt.on svg{color:var(--ink)}
+
+/* boxes */
+.box{border:1px solid var(--line);border-radius:18px;padding:4px 20px;background:#fff}
+.field{display:block;width:100%;text-align:left;padding:16px 0;border-bottom:1px solid var(--line2)}
+.field:last-child{border-bottom:0}
+.field>label{display:block;font-size:13px;color:var(--sub);margin-bottom:8px}
+.in{width:100%;border:0;outline:0;padding:0;font-size:16px;background:transparent}
+.in::placeholder{color:var(--ph)}
+.sfield{display:flex;align-items:flex-end;gap:10px}
+.sfield .sv{flex:1;font-size:16px}
+.sfield .sv.ph{color:var(--ph)}
+button.field{cursor:pointer}
+button.field.dis{opacity:.45;pointer-events:none}
+.phone-row{display:flex;align-items:center;gap:14px}
+.sel-wrap{position:relative;display:inline-flex;align-items:center}
+.sel-wrap select{appearance:none;-webkit-appearance:none;border:0;background:transparent;font-size:16px;padding:0 22px 0 0;outline:0}
+.sel-wrap.full{display:flex;width:100%}
+.sel-wrap.full select{width:100%}
+.sel-wrap select.ph{color:var(--ph)}
+.sel-wrap svg{position:absolute;right:2px;pointer-events:none}
+.radios{display:flex;flex-wrap:wrap;gap:12px 22px}
+.radios.g2{display:grid;grid-template-columns:1fr 1fr}
+.rd{display:flex;align-items:center;gap:8px;font-size:16px}
+.rd i{width:22px;height:22px;border-radius:50%;border:1.5px solid #CFD1D6;display:grid;place-items:center;transition:all .15s}
+.rd.on i{background:var(--yel);border-color:var(--yel)}
+.rd.on i::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--ink)}
+
+.unk{display:inline-flex;align-items:center;gap:10px;margin-top:14px;font-size:16px}
+.unk i{width:26px;height:26px;border-radius:50%;border:1.5px solid #D2D4D9;display:grid;place-items:center;color:#C6C8CD;transition:all .15s}
+.unk.on i{background:var(--yel);border-color:var(--yel);color:var(--ink)}
+
+.seg{display:flex;gap:9px}
+.seg button{flex:1;height:46px;border:1px solid var(--line);border-radius:12px;font-size:16px;color:var(--ink2);transition:all .15s}
+.seg button.on{background:var(--yel-bg);border-color:var(--yel-bd);color:var(--ink);font-weight:700}
+.sublbl{font-size:16px;font-weight:500;margin:0 0 12px}
+.band{height:8px;background:var(--fill);margin:26px -24px}
+
+.sum{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:18px;padding:16px 20px;margin-bottom:9px}
+.sum .m{flex:1;min-width:0}
+.sum .top{display:flex;align-items:center;gap:7px;font-size:16px;font-weight:500}
+.sum .top .e{font-size:18px}
+.badge{font-size:12px;font-weight:500;background:var(--badge);color:var(--badge-ink);padding:3px 7px;border-radius:5px;white-space:nowrap}
+.sum .s{font-size:13px;color:var(--sub);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip{border:1px solid #CFD1D6;border-radius:999px;padding:5px 12px;font-size:13px;flex:none}
+.form-title{font-size:13px;font-weight:500;color:var(--ink2);margin:16px 0 0}
+.box.open{animation:inR .22s ease}
+.add{display:flex;align-items:center;gap:6px;margin:22px auto 0;background:var(--fill);border-radius:999px;padding:11px 20px;font-size:15px;font-weight:500}
+
+/* review */
+.rv-title{display:flex;align-items:center;gap:8px}
+.rv-title .e{font-size:26px}
+.card{background:#fff;border-radius:20px;padding:4px 20px;margin-top:22px}
+.grp{padding:18px 0;border-bottom:1px solid var(--line2)}
+.grp:last-child{border-bottom:0}
+.row{display:flex;justify-content:space-between;gap:16px;font-size:15px;line-height:1.5}
+.row+.row{margin-top:10px}
+.row .k{color:var(--sub);flex:none}
+.row .v{text-align:right}
+.dmg{text-align:right;font-size:15px;line-height:1.6}
+.dmg .tag{display:inline-block;border:1px solid #CFD1D6;border-radius:5px;padding:1px 6px;font-size:12px;color:var(--ink2);margin:14px 0 6px}
+.dmg .tag:first-child{margin-top:0}
+.dmg .n{font-weight:500;margin-right:6px}
+.dmg .p{color:var(--ink2)}
+.dmg .miss{color:var(--ph)}
+
+/* done */
+.done{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:22px;padding-bottom:80px}
+.done h1{font-size:19px}
+.check-pop{animation:pop .5s cubic-bezier(.3,1.6,.5,1)}
+@keyframes pop{from{transform:scale(.4);opacity:0}to{transform:none;opacity:1}}
+
+/* sheet / dialog / toast */
+.layer{position:absolute;inset:0;z-index:20;display:none}
+.layer.show{display:block}
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.4);animation:fade .2s}
+@keyframes fade{from{opacity:0}}
+.sheet{position:absolute;left:0;right:0;bottom:0;max-height:78%;background:#fff;border-radius:22px 22px 0 0;display:flex;flex-direction:column;animation:up .25s ease;padding-bottom:env(safe-area-inset-bottom,0px)}
+@keyframes up{from{transform:translateY(100%)}}
+.grab{width:40px;height:4px;border-radius:2px;background:#DADCE0;margin:10px auto 6px}
+.sheet h2{font-size:18px;margin:8px 24px 14px}
+.sq{margin:0 24px 8px;display:flex;align-items:center;gap:8px;background:var(--fill);border-radius:12px;padding:0 14px;height:46px}
+.sq input{flex:1;border:0;background:transparent;outline:0;font-size:16px}
+.slist{list-style:none;margin:0;padding:4px 0 16px;overflow-y:auto}
+.slist button{width:100%;text-align:left;padding:14px 24px;font-size:16px}
+.slist button:active{background:var(--fill)}
+.slist .hint{color:var(--sub);font-size:14px;padding:14px 24px}
+.slist mark{background:none;color:var(--blue);font-weight:700}
+.dialog{position:absolute;left:28px;right:28px;top:50%;transform:translateY(-50%);background:#fff;border-radius:20px;padding:26px 22px 18px;animation:fade .2s}
+.dialog p{margin:0 0 22px;font-size:16px;line-height:1.5;text-align:center}
+.dialog .acts{display:flex;gap:8px}
+.dialog .btn{height:50px;font-size:16px}
+.toast{position:absolute;left:50%;bottom:100px;transform:translateX(-50%);background:rgba(25,26,28,.88);color:#fff;font-size:14px;padding:11px 18px;border-radius:12px;white-space:nowrap;z-index:30;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="phone" id="phone">
+  <div class="status">
+    <span>9:41</span>
+    <svg width="68" height="12" viewBox="0 0 68 12" aria-hidden="true"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="6" width="3" height="6" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/><path d="M29 3.2a9 9 0 0 1 11 0l-1.3 1.5a7 7 0 0 0-8.4 0zM31.3 6a5.5 5.5 0 0 1 6.4 0l-1.3 1.5a3.5 3.5 0 0 0-3.8 0zM34.5 11.5l-1.7-2a2.3 2.3 0 0 1 3.4 0z"/><rect x="44" y="1" width="21" height="10" rx="3" fill="none" stroke="currentColor" opacity=".4"/><rect x="46" y="3" width="17" height="6" rx="1.5"/><rect x="66" y="4" width="1.5" height="4" rx=".7" opacity=".4"/></svg>
+  </div>
+  <div class="hdr">
+    <button class="back" data-act="back" aria-label="뒤로"><svg width="11" height="20" viewBox="0 0 11 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 1.5 1.5 10l8 8.5"/></svg></button>
+    <div class="t">자동차 사고 접수</div>
+    <button class="ico" data-act="toast" data-msg="상담 챗봇은 데모에서 지원하지 않아요" aria-label="상담"><svg width="26" height="24" viewBox="0 0 26 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 9a8 7 0 0 1 16 0v4a8 7 0 0 1-8 7"/><rect x="2" y="9" width="3.5" height="6" rx="1.5"/><rect x="20.5" y="9" width="3.5" height="6" rx="1.5"/><circle cx="10" cy="10" r=".6" fill="currentColor"/><circle cx="16" cy="10" r=".6" fill="currentColor"/><path d="M10 13.5c1.6 1.4 4.4 1.4 6 0"/><path d="M13 20h-2"/></svg></button>
+    <button class="ico" data-act="home" aria-label="홈"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3.5 10 12 3l8.5 7v10.5h-17z"/><path d="M9.5 20.5v-6h5v6"/></svg></button>
+    <button class="ico" data-act="toast" data-msg="전체 메뉴는 데모에서 지원하지 않아요" aria-label="메뉴"><svg width="24" height="20" viewBox="0 0 24 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 3h20M2 10h20M2 17h20"/></svg></button>
+  </div>
+  <div class="stepper" id="stepper">
+    <span class="lbl" id="stepLbl"></span>
+    <div class="dots" id="dots"></div>
+    <div class="bar"><i id="barFill"></i></div>
+  </div>
+  <div class="content" id="content"></div>
+  <div class="footer" id="footer"></div>
+
+  <div class="layer" id="sheetLayer">
+    <div class="dim" data-act="closeSheet"></div>
+    <div class="sheet">
+      <div class="grab"></div>
+      <h2 id="sheetTitle"></h2>
+      <div class="sq"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8B8F96" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4" stroke-linecap="round"/></svg><input id="sheetQ" placeholder="검색어 입력" autocomplete="off"></div>
+      <ul class="slist" id="sheetList"></ul>
+    </div>
+  </div>
+  <div class="layer" id="dlgLayer">
+    <div class="dim" data-act="closeDlg"></div>
+    <div class="dialog" role="dialog">
+      <p>작성 중인 내용이 사라져요.<br>처음으로 돌아갈까요?</p>
+      <div class="acts"><button class="btn gray" data-act="closeDlg">취소</button><button class="btn" data-act="restart">처음으로</button></div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+</div>
+<div class="caption">자동차 사고 접수 프로토타입 <button data-act="restart">처음부터 다시</button></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const ITEMS=[
+  {id:'police',em:'🚔',l:'경찰에 신고했어요'},
+  {id:'injury',em:'🤕',l:'사람이 다쳤어요'},
+  {id:'mycar',em:'🚗',l:'내 차량이 파손됐어요'},
+  {id:'othercar',em:'🚙',l:'다른 차량도 파손됐어요'},
+  {id:'property',em:'🚧',l:'다른 피해물이 있어요'},
+  {id:'none',em:'',l:'해당 없음'}];
+const LISTS={
+  police:{t:'경찰서 찾기',items:['서울경찰청(서울)','강남경찰서','서초경찰서','수서경찰서','송파경찰서','관악경찰서','영등포경찰서','마포경찰서','종로경찰서','용산경찰서','분당경찰서(경기)','해운대경찰서(부산)']},
+  hosp:{t:'치료병원 찾기',items:['서울아산병원','삼성서울병원','강남세브란스병원','신촌세브란스병원','서울대학교병원','서울성모병원','강남베드로병원','역삼정형외과의원','선릉한방병원']},
+  shop:{t:'정비업체 찾기',items:['강남카센터','역삼1급자동차공업사','서초모터스','블루핸즈 강남대로점','오토큐 서초점','삼성동 덴트공업사','테헤란 수입차정비']}
+};
+const PRE=['010','011','016','017','018','019'];
+const REL=[['self','접수자 본인'],['family','가족'],['coworker','동료'],['etc','기타']];
+const CARTYPE=[['dom','국산차'],['imp','외제차'],['unk','모름']];
+const PROPKIND=['시설물/구축물','가드레일','신호등/표지판','건물/상가','주차된 물건','동물','기타'];
+const TITLES={select:'피해 유형',police:'경찰 신고',injury:'부상자 정보',insure:'보험처리',cars:'추가 파손차량',props:'추가 피해물',review:'내용 확인'};
+
+const newInj=()=>({rel:'',name:'',pre:'010',phone:'',hosp:'',done:false});
+const newCar=()=>({type:'',plate:'',owner:'',pre:'010',phone:'',shop:'',done:false});
+const newProp=()=>({kind:'',owner:'',pre:'010',phone:'',done:false});
+let S;
+function reset(){S={screen:'select',hist:[],sel:new Set(),
+  police:{name:'',unknown:false},
+  injCount:0,inj:[],injOpen:-1,
+  ins:{choice:null,shop:'',unknown:false},
+  cars:[newCar()],carsOpen:0,
+  props:[newProp()],propsOpen:0};}
+
+function flow(){const f=['select'],s=S.sel;
+  if(s.has('police'))f.push('police');
+  if(s.has('injury'))f.push('injury');
+  if(s.has('mycar'))f.push('insure');
+  if(s.has('othercar'))f.push('cars');
+  if(s.has('property'))f.push('props');
+  f.push('review');return f;}
+
+function getPath(p){return p.split('.').reduce((o,k)=>o?.[k],S)}
+function setPath(p,v){const ks=p.split('.');const last=ks.pop();ks.reduce((o,k)=>o[k],S)[last]=v}
+const fullPhone=o=>o.phone?`${o.pre}-${o.phone}`:'';
+
+/* ---------- building blocks ---------- */
+const IC={
+  check:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12.5 5 5L20 6.5"/></svg>',
+  smallCheck:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12.5 5 5L20 6.5"/></svg>',
+  search:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7.5"/><path d="m20.5 20.5-4-4" stroke-linecap="round"/></svg>',
+  caret:'<svg width="12" height="8" viewBox="0 0 12 8"><path d="M0 0h12L6 7z" fill="currentColor"/></svg>',
+  plus:'<svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 4v16M4 12h16"/></svg>'
+};
+const textField=(label,path,ph,mode)=>`<div class="field"><label>${label}</label><input class="in" data-bind="${path}" value="${esc(getPath(path))}" placeholder="${ph}" ${mode?`inputmode="${mode}"`:''}></div>`;
+const phoneField=(base)=>{const o=getPath(base);return `<div class="field"><label>휴대폰 번호</label><div class="phone-row">
+  <span class="sel-wrap"><select data-bind="${base}.pre" aria-label="앞자리">${PRE.map(p=>`<option ${p===o.pre?'selected':''}>${p}</option>`).join('')}</select>${IC.caret}</span>
+  <input class="in" data-bind="${base}.phone" data-fmt="phone" inputmode="numeric" placeholder="휴대폰번호 입력" value="${esc(o.phone)}"></div></div>`};
+const searchField=(label,path,list,dis)=>{const v=getPath(path);return `<button class="field ${dis?'dis':''}" data-act="sheet" data-list="${list}" data-path="${path}"><label>${label}</label><div class="sfield"><span class="sv ${v?'':'ph'}">${esc(v||'검색')}</span>${IC.search}</div></button>`};
+const radios=(path,opts,cls='')=>{const v=getPath(path);return `<div class="radios ${cls}">${opts.map(([k,l])=>`<button class="rd ${v===k?'on':''}" data-act="set" data-path="${path}" data-val="${k}"><i></i>${l}</button>`).join('')}</div>`};
+const unknown=(path)=>`<button class="unk ${getPath(path)?'on':''}" data-act="unknown" data-path="${path}"><i>${IC.smallCheck}</i>모르겠어요</button>`;
+const summary=(list,i,em,name,badge,sub)=>`<div class="sum" id="c-${list}-${i}"><div class="m"><div class="top"><span class="e">${em}</span>${esc(name)}${badge?`<span class="badge">${esc(badge)}</span>`:''}</div><div class="s">${esc(sub||'입력한 정보가 없어요')}</div></div><button class="chip" data-act="edit" data-list="${list}" data-i="${i}">수정</button></div>`;
+
+/* ---------- screens ---------- */
+const SCREENS={
+select(){return `<h1>해당되는 항목을 <em>모두 선택</em>해 주세요</h1><div class="gap"></div>
+  ${ITEMS.map(it=>`<button class="opt ${S.sel.has(it.id)?'on':''}" data-act="pick" data-id="${it.id}" aria-pressed="${S.sel.has(it.id)}">${it.em?`<span class="em">${it.em}</span>`:''}<span class="l">${it.l}</span>${IC.check}</button>`).join('')}`},
+
+police(){return `<h1>신고한 경찰서를 알려주세요</h1><div class="gap"></div>
+  <div class="box">${searchField('경찰서 찾기','police.name','police',S.police.unknown)}</div>${unknown('police.unknown')}`},
+
+injury(){
+  let h=`<h1>부상자 정보를 알려주세요</h1><p class="desc">모르거나 정확하지 않은 정보는 비워두셔도 돼요.</p><div class="gap"></div>
+  <p class="sublbl">부상자 수</p><div class="seg">${[[1,'한명'],[2,'두명'],[3,'세명이상']].map(([n,l])=>`<button class="${S.injCount===n?'on':''}" data-act="injCount" data-n="${n}">${l}</button>`).join('')}</div>`;
+  if(!S.injCount)return h;
+  h+='<div class="band"></div>';
+  S.inj.forEach((p,i)=>{
+    if(i===S.injOpen){
+      h+=`${S.inj.length>1?`<p class="form-title">부상자 ${i+1}</p>`:''}<div class="box open" id="c-inj-${i}" style="margin:${S.inj.length>1?'8px':'0'} 0 9px">
+        <div class="field"><label>관계</label>${radios(`inj.${i}.rel`,REL,'g2')}</div>
+        ${textField('부상자 성함',`inj.${i}.name`,'입력')}
+        ${phoneField(`inj.${i}`)}
+        ${searchField('치료병원 찾기',`inj.${i}.hosp`,'hosp')}</div>`;
+    }else{
+      const rel=(REL.find(r=>r[0]===p.rel)||[])[1];
+      h+=summary('inj',i,'🧑',p.name||`부상자 ${i+1}`,rel,[p.hosp,fullPhone(p)].filter(Boolean).join(' · '));
+    }});
+  if(S.injCount===3)h+=`<button class="add" data-act="add" data-list="inj">${IC.plus}부상자 추가</button>`;
+  return h;},
+
+insure(){return `<h1>피보험차량을 보험처리 할까요?</h1><p class="desc">피보험차량 · 15조 2230</p><div class="gap"></div>
+  <div class="seg">${[['no','아니요'],['yes','네']].map(([k,l])=>`<button class="${S.ins.choice===k?'on':''}" data-act="set" data-path="ins.choice" data-val="${k}">${l}</button>`).join('')}</div>
+  ${S.ins.choice==='yes'?`<div class="box open" style="margin-top:10px">${searchField('정비업체 찾기','ins.shop','shop',S.ins.unknown)}</div>${unknown('ins.unknown')}`:''}`},
+
+cars(){let h=`<h1>추가파손차량 정보를 알려주세요</h1><p class="desc">모르거나 정확하지 않은 정보는 비워두셔도 돼요.</p><div class="gap"></div>`;
+  S.cars.forEach((c,i)=>{
+    if(i===S.carsOpen){h+=`<div class="box open" id="c-cars-${i}" style="margin-bottom:9px">
+      <div class="field"><label>차량 선택</label>${radios(`cars.${i}.type`,CARTYPE)}</div>
+      ${textField('자동차 번호',`cars.${i}.plate`,'00가 0000')}
+      ${textField('소유주 이름',`cars.${i}.owner`,'입력')}
+      ${phoneField(`cars.${i}`)}
+      ${searchField('정비업체 찾기',`cars.${i}.shop`,'shop')}</div>`;}
+    else{const t=(CARTYPE.find(x=>x[0]===c.type)||[])[1];
+      h+=summary('cars',i,'🚘',c.owner||`추가 차량 ${i+1}`,c.plate,[t,fullPhone(c)].filter(Boolean).join(' · '));}});
+  return h+`<button class="add" data-act="add" data-list="cars">${IC.plus}파손 차량 추가</button>`},
+
+props(){let h=`<h1>추가피해물 정보를 알려주세요</h1><p class="desc">모르거나 정확하지 않은 정보는 비워두셔도 돼요.</p><div class="gap"></div>`;
+  S.props.forEach((p,i)=>{
+    if(i===S.propsOpen){h+=`<div class="box open" id="c-props-${i}" style="margin-bottom:9px">
+      <div class="field"><label>피해물</label><span class="sel-wrap full"><select data-bind="props.${i}.kind" class="${p.kind?'':'ph'}" aria-label="피해물"><option value="">선택</option>${PROPKIND.map(k=>`<option ${k===p.kind?'selected':''}>${k}</option>`).join('')}</select>${IC.caret}</span></div>
+      ${textField('소유주 이름',`props.${i}.owner`,'입력')}
+      ${phoneField(`props.${i}`)}</div>`;}
+    else h+=summary('props',i,'🚧',p.owner||`피해물 ${i+1}`,p.kind,fullPhone(p));});
+  return h+`<button class="add" data-act="add" data-list="props">${IC.plus}피해물 추가</button>`},
+
+review(){const s=S.sel;
+  const line=(n,p)=>`<div><span class="n">${esc(n)}</span><span class="p">${p?esc(p):'<span class="miss">연락처 미입력</span>'}</span></div>`;
+  let d='';
+  if(s.has('injury'))d+=`<span class="tag">사람</span>`+S.inj.map((p,i)=>line(p.name||`부상자 ${i+1}`,fullPhone(p))).join('');
+  if(s.has('mycar')||s.has('othercar')){d+=`<span class="tag">차량</span>`;
+    if(s.has('mycar'))d+=`<div><span class="n">피보험차량</span><span class="p">15조2230</span></div>${S.ins.choice==='yes'?`<div><span class="n">보험처리</span><span class="p">${esc(S.ins.shop||'정비업체 미정')}</span></div>`:''}`;
+    if(s.has('othercar'))S.cars.forEach((c,i)=>{d+=`<div><span class="n">추가 차량</span><span class="p">${esc(c.plate||'번호 미입력')}</span></div>`;if(c.owner||c.phone)d+=line(c.owner||'소유주',fullPhone(c));});}
+  if(s.has('property')){d+=`<span class="tag">피해물</span>`;S.props.forEach(p=>{d+=`<div>${esc(p.kind||'종류 미선택')}</div>`;if(p.owner||p.phone)d+=line(p.owner||'소유주',fullPhone(p));});}
+  if(!d)d='<div class="miss">피해사항 없음</div>';
+  const police=s.has('police')?`<div class="row"><span class="k">신고 경찰서</span><span class="v">${esc(S.police.unknown?'모름':(S.police.name||'미입력'))}</span></div>`:'';
+  return `<div class="rv-title"><span class="e">🚗</span><h1>사고 접수 내용 확인</h1></div>
+  <div class="card">
+    <div class="grp"><div class="row"><span class="k">접수자</span><span class="v">김손보</span></div><div class="row"><span class="k">접수차량</span><span class="v">15조2230</span></div></div>
+    <div class="grp"><div class="row"><span class="k">사고일시</span><span class="v">2025.09.12 오후 4시 12분</span></div><div class="row"><span class="k">운전자</span><span class="v">김손보</span></div></div>
+    <div class="grp"><div class="row"><span class="k">사고유형</span><span class="v">자동차와 자동차</span></div><div class="row"><span class="k">사고장소</span><span class="v">서울시 강남구 테헤란로 117<br>(KB손해보험빌딩, 역삼동)</span></div>${police}</div>
+    <div class="grp"><div class="row"><span class="k">사고 내용</span><span class="v">좌회전 신호에 좌회전하는데, 직진 차선에 있던 차량이 무리하게 좌회전하려고하다 우측후방 충돌</span></div></div>
+    <div class="grp"><div class="row"><span class="k">피해사항</span><div class="dmg">${d}</div></div></div>
+  </div>`},
+
+done(){return `<div class="done"><svg class="check-pop" width="76" height="80" viewBox="0 0 76 80" aria-hidden="true">
+  <defs><linearGradient id="rim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F3E3C4"/><stop offset=".5" stop-color="#D9BF92"/><stop offset="1" stop-color="#F6ECD8"/></linearGradient>
+  <linearGradient id="ck" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE45C"/><stop offset="1" stop-color="#F5B800"/></linearGradient></defs>
+  <ellipse cx="38" cy="40" rx="35" ry="38" fill="url(#rim)"/><ellipse cx="39" cy="40" rx="30" ry="33" fill="#fff"/>
+  <path d="M22 40l11 11 21-24" fill="none" stroke="url(#ck)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  <h1>사고 접수가 완료됐어요</h1></div>`}
+};
+
+/* ---------- render ---------- */
+const content=$('#content');
+function canNext(){switch(S.screen){
+  case 'select':return S.sel.size>0;
+  case 'police':return !!S.police.name||S.police.unknown;
+  case 'injury':return S.injCount>0;
+  case 'insure':return S.ins.choice!==null;
+  default:return true;}}
+function renderFooter(){const f=$('#footer');
+  if(S.screen==='done'){f.innerHTML=`<button class="btn gray" data-act="restart">홈으로</button><button class="btn" data-act="toast" data-msg="진행사항 화면은 다음 단계에서 준비 중이에요">진행사항 보기</button>`;return;}
+  f.innerHTML=`<button class="btn" data-act="next" ${canNext()?'':'disabled'}>${S.screen==='review'?'접수하기':'다음'}</button>`;}
+function updateFooter(){const b=$('#footer [data-act=next]');if(b)b.disabled=!canNext();}
+function renderChrome(){
+  const st=$('#stepper');
+  if(S.screen==='done'){st.style.display='none';return;}
+  st.style.display='';
+  const f=flow(),cur=Math.min(f.indexOf(S.screen)+1,8);
+  $('#stepLbl').textContent=TITLES[S.screen];
+  $('#dots').innerHTML=Array.from({length:8},(_,i)=>`<span class="dot ${i+1===cur?'on':i+1<cur?'past':''}">${i+1}</span>`).join('');
+  $('#barFill').style.width=(cur/8*100)+'%';}
+function render(dir){
+  content.className='content'+(S.screen==='review'?' gray':'');
+  content.innerHTML=`<div class="screen ${dir>0?'in-r':dir<0?'in-l':''}" style="${S.screen==='done'?'height:100%':''}">${SCREENS[S.screen]()}</div>`;
+  if(dir!==undefined)content.scrollTop=0;
+  renderChrome();renderFooter();
+  $('#footer').style.background=S.screen==='review'?'var(--fill)':'#fff';}
+function rerender(){const y=content.scrollTop;render();content.scrollTop=y;}
+function scrollTo(id){requestAnimationFrame(()=>{const el=document.getElementById(id);if(el)content.scrollTo({top:el.offsetTop-90,behavior:'smooth'});});}
+function go(id,dir){if(dir>0)S.hist.push(S.screen);S.screen=id;render(dir);}
+
+const LISTKEY={inj:'injOpen',cars:'carsOpen',props:'propsOpen'};
+function next(){
+  if(!canNext())return;
+  const sc=S.screen,lk={injury:'inj',cars:'cars',props:'props'}[sc];
+  if(lk){const ok=LISTKEY[lk];
+    if(S[ok]>=0)S[lk][S[ok]].done=true;
+    const i=S[lk].findIndex(x=>!x.done);
+    if(i>=0){S[ok]=i;rerender();scrollTo(`c-${lk}-${i}`);return;}
+    S[ok]=-1;}
+  if(sc==='review'){go('done',1);return;}
+  const f=flow();go(f[f.indexOf(sc)+1],1);}
+function back(){
+  if(S.screen==='done'){restart();return;}
+  if(!S.hist.length){toast('첫 번째 단계예요');return;}
+  S.screen=S.hist.pop();render(-1);}
+function restart(){reset();$('#dlgLayer').classList.remove('show');render(-1);}
+
+/* ---------- sheet ---------- */
+let sheetCtx=null;
+function openSheet(list,path){sheetCtx={list,path};$('#sheetTitle').textContent=LISTS[list].t;const q=$('#sheetQ');q.value='';fillSheet('');$('#sheetLayer').classList.add('show');setTimeout(()=>q.focus(),250);}
+function fillSheet(q){const items=LISTS[sheetCtx.list].items.filter(x=>x.includes(q));
+  let h=items.map(x=>`<li><button data-act="choose" data-v="${esc(x)}">${q?esc(x).replace(esc(q),`<mark>${esc(q)}</mark>`):esc(x)}</button></li>`).join('');
+  if(q&&!items.includes(q))h+=`<li><button data-act="choose" data-v="${esc(q)}">‘${esc(q)}’ 직접 입력</button></li>`;
+  if(!h)h='<li class="hint">검색어를 입력해 주세요</li>';
+  $('#sheetList').innerHTML=h;}
+$('#sheetQ').addEventListener('input',e=>fillSheet(e.target.value.trim()));
+function closeSheet(){$('#sheetLayer').classList.remove('show');sheetCtx=null;}
+
+let tt;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),1800);}
+
+/* ---------- events ---------- */
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-act]');if(!t)return;const d=t.dataset;
+  switch(d.act){
+    case 'next':next();break;
+    case 'back':back();break;
+    case 'home':S.screen==='select'&&!S.sel.size?toast('첫 번째 단계예요'):$('#dlgLayer').classList.add('show');break;
+    case 'closeDlg':$('#dlgLayer').classList.remove('show');break;
+    case 'restart':restart();break;
+    case 'toast':toast(d.msg);break;
+    case 'pick':{const id=d.id;
+      if(id==='none'){const had=S.sel.has('none');S.sel.clear();if(!had)S.sel.add('none');}
+      else{S.sel.delete('none');S.sel.has(id)?S.sel.delete(id):S.sel.add(id);}
+      rerender();break;}
+    case 'set':setPath(d.path,d.val);rerender();break;
+    case 'unknown':{const on=!getPath(d.path);setPath(d.path,on);
+      if(on){if(d.path==='police.unknown')S.police.name='';if(d.path==='ins.unknown')S.ins.shop='';}
+      rerender();break;}
+    case 'sheet':openSheet(d.list,d.path);break;
+    case 'closeSheet':closeSheet();break;
+    case 'choose':setPath(sheetCtx.path,d.v);
+      if(sheetCtx.path==='police.name')S.police.unknown=false;
+      if(sheetCtx.path==='ins.shop')S.ins.unknown=false;
+      closeSheet();rerender();break;
+    case 'injCount':{const n=+d.n;S.injCount=n;
+      while(S.inj.length<n)S.inj.push(newInj());
+      if(n<3)S.inj.length=n;
+      if(S.injOpen<0||S.injOpen>=S.inj.length){const i=S.inj.findIndex(x=>!x.done);S.injOpen=i>=0?i:0;}
+      rerender();break;}
+    case 'edit':{const lk=d.list,ok=LISTKEY[lk],i=+d.i;
+      if(S[ok]>=0&&S[lk][S[ok]])S[lk][S[ok]].done=true;
+      S[ok]=i;rerender();scrollTo(`c-${lk}-${i}`);break;}
+    case 'add':{const lk=d.list,ok=LISTKEY[lk];
+      if(S[ok]>=0)S[lk][S[ok]].done=true;
+      S[lk].push(lk==='inj'?newInj():lk==='cars'?newCar():newProp());
+      S[ok]=S[lk].length-1;rerender();scrollTo(`c-${lk}-${S[ok]}`);break;}
+  }});
+function onBind(e){const el=e.target;if(!el.dataset.bind)return;
+  let v=el.value;
+  if(el.dataset.fmt==='phone'){const dg=v.replace(/\D/g,'').slice(0,8);v=dg.length>4?dg.slice(0,4)+'-'+dg.slice(4):dg;el.value=v;}
+  if(el.tagName==='SELECT'&&el.closest('.full'))el.classList.toggle('ph',!v);
+  setPath(el.dataset.bind,v);updateFooter();}
+content.addEventListener('input',onBind);content.addEventListener('change',onBind);
+
+reset();render();
+</script>
+</body>
+</html>
